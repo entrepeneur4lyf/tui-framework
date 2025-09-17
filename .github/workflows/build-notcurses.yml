@@ -1,0 +1,67 @@
+name: Build and Release Notcurses
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-notcurses:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+          - os: ubuntu-24.04  
+            platform: linux-x86_64-ubuntu24
+          - os: macos-latest
+            platform: macos-x86_64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies (Ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake pkg-config \
+          libncurses-dev libunistring-dev libavformat-dev libavutil-dev \
+          libswscale-dev libqrcodegen-dev
+    
+    - name: Install dependencies (macOS)
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install cmake ncurses libunistring ffmpeg qrencode
+    
+    - name: Build notcurses
+      run: |
+        git clone https://github.com/dankamongmen/notcurses.git
+        cd notcurses
+        git checkout v3.0.11
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        make -j$(nproc || sysctl -n hw.ncpu)
+        make install DESTDIR=${{ github.workspace }}/notcurses-install
+    
+    - name: Package notcurses
+      run: |
+        cd ${{ github.workspace }}/notcurses-install
+        tar -czf ../notcurses-3.0.11-${{ matrix.platform }}.tar.gz usr/
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: notcurses-3.0.11-${{ matrix.platform }}
+        path: notcurses-3.0.11-${{ matrix.platform }}.tar.gz
+    
+    - name: Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: notcurses-3.0.11-${{ matrix.platform }}.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
