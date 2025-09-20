@@ -205,12 +205,7 @@ impl Rect {
         let right = self.right().max(other.right());
         let bottom = self.bottom().max(other.bottom());
 
-        Rect::from_coords(
-            left,
-            top,
-            (right - left) as u32,
-            (bottom - top) as u32,
-        )
+        Rect::from_coords(left, top, (right - left) as u32, (bottom - top) as u32)
     }
 
     /// Translate the rectangle by an offset.
@@ -358,9 +353,9 @@ mod tests {
     fn test_rect_intersection() {
         let rect1 = Rect::from_coords(0, 0, 10, 10);
         let rect2 = Rect::from_coords(5, 5, 10, 10);
-        
+
         assert!(rect1.intersects(&rect2));
-        
+
         let intersection = rect1.intersection(&rect2).unwrap();
         assert_eq!(intersection, Rect::from_coords(5, 5, 5, 5));
     }

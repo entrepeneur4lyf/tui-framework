@@ -140,8 +140,7 @@ pub struct VirtualText {
 }
 
 /// Style information for virtual elements.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct VirtualStyle {
     /// Background color
     pub background_color: Option<Color>,
@@ -177,7 +176,6 @@ pub struct VirtualStyle {
     pub z_index: Option<i32>,
 }
 
-
 /// Style value that can be absolute or relative.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StyleValue {
@@ -191,85 +189,144 @@ pub enum StyleValue {
     Fill,
 }
 
+impl std::hash::Hash for StyleValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            StyleValue::Absolute(val) => {
+                0u8.hash(state);
+                val.hash(state);
+            }
+            StyleValue::Percentage(val) => {
+                1u8.hash(state);
+                // Convert f32 to bits for hashing
+                val.to_bits().hash(state);
+            }
+            StyleValue::Auto => {
+                2u8.hash(state);
+            }
+            StyleValue::Fill => {
+                3u8.hash(state);
+            }
+        }
+    }
+}
+
 /// Spacing values for padding and margin.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StyleSpacing {
+    /// Top spacing value.
     pub top: StyleValue,
+    /// Right spacing value.
     pub right: StyleValue,
+    /// Bottom spacing value.
     pub bottom: StyleValue,
+    /// Left spacing value.
     pub left: StyleValue,
 }
 
 /// Display types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DisplayType {
+    /// Block-level element.
     Block,
+    /// Inline element.
     Inline,
+    /// Flexbox container.
     Flex,
+    /// Grid container.
     Grid,
+    /// Hidden element.
     None,
 }
 
 /// Flex direction values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FlexDirection {
+    /// Horizontal layout, left to right.
     Row,
+    /// Vertical layout, top to bottom.
     Column,
+    /// Horizontal layout, right to left.
     RowReverse,
+    /// Vertical layout, bottom to top.
     ColumnReverse,
 }
 
 /// Justify content values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JustifyContent {
+    /// Items are packed toward the start of the flex direction.
     FlexStart,
+    /// Items are packed toward the end of the flex direction.
     FlexEnd,
+    /// Items are centered along the line.
     Center,
+    /// Items are evenly distributed with space between them.
     SpaceBetween,
+    /// Items are evenly distributed with space around them.
     SpaceAround,
+    /// Items are evenly distributed with equal space around them.
     SpaceEvenly,
 }
 
 /// Align items values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AlignItems {
+    /// Items are aligned to the start of the cross axis.
     FlexStart,
+    /// Items are aligned to the end of the cross axis.
     FlexEnd,
+    /// Items are centered on the cross axis.
     Center,
+    /// Items are stretched to fill the container.
     Stretch,
+    /// Items are aligned to their baseline.
     Baseline,
 }
 
 /// Text alignment values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TextAlign {
+    /// Align text to the left.
     Left,
+    /// Center text.
     Center,
+    /// Align text to the right.
     Right,
+    /// Justify text.
     Justify,
 }
 
 /// Font weight values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FontWeight {
+    /// Normal font weight.
     Normal,
+    /// Bold font weight.
     Bold,
+    /// Light font weight.
     Light,
 }
 
 /// Font style values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FontStyle {
+    /// Normal font style.
     Normal,
+    /// Italic font style.
     Italic,
+    /// Underlined font style.
     Underline,
 }
 
 /// Visibility values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Visibility {
+    /// Element is visible.
     Visible,
+    /// Element is hidden but takes up space.
     Hidden,
+    /// Element is hidden and does not take up space.
     Collapse,
 }
 
@@ -323,18 +380,21 @@ pub mod nodes {
     pub fn container() -> VirtualNode {
         VirtualNode::element("container")
     }
+
+    /// Create a list element.
+    pub fn list() -> VirtualNode {
+        VirtualNode::element("list")
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::nodes::*;
+    use super::*;
 
     #[test]
     fn test_virtual_node_creation() {
-        let node = div()
-            .child(text("Hello"))
-            .child(button("Click me"));
+        let node = div().child(text("Hello")).child(button("Click me"));
 
         assert_eq!(node.tag(), Some("div"));
         assert_eq!(node.get_children().len(), 2);
@@ -354,13 +414,14 @@ mod tests {
 
     #[test]
     fn test_node_attributes() {
-        let node = div()
-            .attr("id", "test")
-            .attr("class", "container");
+        let node = div().attr("id", "test").attr("class", "container");
 
         if let VirtualNode::Element(element) = node {
             assert_eq!(element.attributes.get("id"), Some(&"test".to_string()));
-            assert_eq!(element.attributes.get("class"), Some(&"container".to_string()));
+            assert_eq!(
+                element.attributes.get("class"),
+                Some(&"container".to_string())
+            );
         } else {
             panic!("Expected element node");
         }

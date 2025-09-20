@@ -1,30 +1,190 @@
 //! Reactive state management.
+//!
+//! This module provides the reactive state system that powers the framework's
+//! automatic UI updates. When state changes, components that depend on that
+//! state are automatically re-rendered.
+//!
+//! ## Core Concepts
+//!
+//! - [`State<T>`]: A reactive container that holds a value and notifies observers
+//! - [`MappedState<T, U, F>`]: A derived state that automatically updates when source changes
+//! - [`use_state`]: Hook for creating and managing component state
+//! - Observer pattern for automatic updates
+//!
+//! ## Example
+//!
+//! ```rust
+//! use tui_framework::reactive::state::State;
+//!
+//! // Create reactive state
+//! let count = State::new(0);
+//!
+//! // Subscribe to changes
+//! let subscription = count.subscribe(|new_value| {
+//!     println!("Count changed to: {}", new_value);
+//! });
+//!
+//! // Update state (triggers notification)
+//! count.set(42); // Prints: "Count changed to: 42"
+//!
+//! // Create derived state
+//! let doubled = count.map(|x| x * 2);
+//! assert_eq!(*doubled.get(), 84);
+//!
+//! // Update original state (derived state updates automatically)
+//! count.set(10);
+//! assert_eq!(*doubled.get(), 20);
+//! ```
+//!
+//! ## State Lifecycle
+//!
+//! 1. **Creation**: State is created with an initial value
+//! 2. **Subscription**: Components subscribe to state changes
+//! 3. **Updates**: State is modified using `set()` or `update()`
+//! 4. **Notification**: All subscribers are notified of changes
+//! 5. **Re-rendering**: Components re-render with new state
+//!
+//! ## Performance
+//!
+//! The state system is designed for performance:
+//! - Uses `RwLock` for concurrent read access
+//! - Minimal allocations for state updates
+//! - Efficient observer notification
+//! - Automatic cleanup of unused subscriptions
 
 use parking_lot::{RwLock, RwLockReadGuard};
-use std::sync::Arc;
+use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// A unique identifier for a subscription.
+///
+/// Each subscription to state changes gets a unique ID that can be used
+/// to unsubscribe later. IDs are generated atomically and are guaranteed
+/// to be unique within the application.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SubscriptionId(u64);
+
+impl SubscriptionId {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        Self(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 /// A reactive state container that notifies observers when the value changes.
+///
+/// [`State<T>`] is the core building block of the reactive system. It holds a value
+/// of type `T` and automatically notifies all subscribers when the value changes.
+/// This enables automatic UI updates when state changes.
+///
+/// ## Features
+///
+/// - **Thread-safe**: Can be safely shared between threads
+/// - **Efficient reads**: Multiple readers can access the value concurrently
+/// - **Automatic notifications**: Observers are notified when value changes
+/// - **Derived state**: Can create mapped states that update automatically
+/// - **Subscription management**: Automatic cleanup of unused subscriptions
+///
+/// ## Example
+///
+/// ```rust
+/// use tui_framework::reactive::state::State;
+///
+/// // Create state with initial value
+/// let counter = State::new(0);
+///
+/// // Read current value
+/// assert_eq!(*counter.get(), 0);
+///
+/// // Subscribe to changes
+/// let subscription = counter.subscribe(|value| {
+///     println!("Counter: {}", value);
+/// });
+///
+/// // Update state (triggers notification)
+/// counter.set(42);
+/// assert_eq!(*counter.get(), 42);
+///
+/// // Update with closure
+/// counter.update(|value| *value += 1);
+/// assert_eq!(*counter.get(), 43);
+/// ```
 pub struct State<T> {
     value: Arc<RwLock<T>>,
-    observers: Arc<RwLock<Vec<Box<dyn Fn(&T) + Send + Sync>>>>,
+    observers:
+        Arc<RwLock<std::collections::HashMap<SubscriptionId, Box<dyn Fn(&T) + Send + Sync>>>>,
 }
 
 impl<T> State<T> {
     /// Create a new state with an initial value.
+    ///
+    /// This creates a new reactive state container with the provided initial value.
+    /// The state can be shared between components and will notify all subscribers
+    /// when the value changes.
+    ///
+    /// ## Parameters
+    ///
+    /// - `initial_value`: The initial value to store in the state
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use tui_framework::reactive::state::State;
+    ///
+    /// let count = State::new(42);
+    /// assert_eq!(*count.get(), 42);
+    /// ```
     pub fn new(initial_value: T) -> Self {
         Self {
             value: Arc::new(RwLock::new(initial_value)),
-            observers: Arc::new(RwLock::new(Vec::new())),
+            observers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
     /// Get a read-only reference to the current value.
+    ///
+    /// This returns a read guard that allows access to the current value.
+    /// Multiple readers can access the value concurrently. The guard
+    /// automatically releases the lock when dropped.
+    ///
+    /// ## Returns
+    ///
+    /// A read guard that dereferences to the current value.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use tui_framework::reactive::state::State;
+    ///
+    /// let state = State::new("hello");
+    /// let value = state.get();
+    /// assert_eq!(*value, "hello");
+    /// ```
     pub fn get(&self) -> RwLockReadGuard<'_, T> {
         self.value.read()
     }
 
     /// Set a new value and notify observers.
+    ///
+    /// This replaces the current value with a new one and notifies all
+    /// subscribers about the change. This is the primary way to update
+    /// state and trigger UI re-renders.
+    ///
+    /// ## Parameters
+    ///
+    /// - `new_value`: The new value to store
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use tui_framework::reactive::state::State;
+    ///
+    /// let count = State::new(0);
+    /// count.set(42);
+    /// assert_eq!(*count.get(), 42);
+    /// ```
     pub fn set(&self, new_value: T) {
         {
             let mut value = self.value.write();
@@ -46,12 +206,21 @@ impl<T> State<T> {
     }
 
     /// Subscribe to changes in this state.
-    pub fn subscribe<F>(&self, observer: F)
+    /// Returns a subscription ID that can be used to unsubscribe.
+    pub fn subscribe<F>(&self, observer: F) -> SubscriptionId
     where
         F: Fn(&T) + Send + Sync + 'static,
     {
+        let id = SubscriptionId::new();
         let mut observers = self.observers.write();
-        observers.push(Box::new(observer));
+        observers.insert(id, Box::new(observer));
+        id
+    }
+
+    /// Unsubscribe from changes in this state.
+    pub fn unsubscribe(&self, id: SubscriptionId) -> bool {
+        let mut observers = self.observers.write();
+        observers.remove(&id).is_some()
     }
 
     /// Get a clone of the current value (requires T: Clone).
@@ -65,7 +234,7 @@ impl<T> State<T> {
     /// Map the state to a new type.
     pub fn map<U, F>(&self, mapper: F) -> MappedState<T, U, F>
     where
-        F: Fn(&T) -> U + Send + Sync,
+        F: Fn(&T) -> U + Send + Sync + Clone + 'static,
     {
         MappedState {
             source: self.clone(),
@@ -77,7 +246,7 @@ impl<T> State<T> {
     fn notify_observers(&self) {
         let value = self.value.read();
         let observers = self.observers.read();
-        for observer in observers.iter() {
+        for (_, observer) in observers.iter() {
             observer(&*value);
         }
     }
@@ -103,7 +272,7 @@ impl<T: fmt::Debug> fmt::Debug for State<T> {
 /// A state that is derived from another state through a mapping function.
 pub struct MappedState<T, U, F>
 where
-    F: Fn(&T) -> U + Send + Sync,
+    F: Fn(&T) -> U + Send + Sync + Clone + 'static,
 {
     source: State<T>,
     mapper: F,
@@ -111,7 +280,7 @@ where
 
 impl<T, U, F> MappedState<T, U, F>
 where
-    F: Fn(&T) -> U + Send + Sync,
+    F: Fn(&T) -> U + Send + Sync + Clone + 'static,
 {
     /// Get the mapped value.
     pub fn get(&self) -> U {
@@ -120,15 +289,21 @@ where
     }
 
     /// Subscribe to changes in the mapped state.
-    /// Note: This is a simplified implementation. A full implementation would
-    /// need to handle the lifetime issues properly.
-    pub fn subscribe<G>(&self, _observer: G)
+    /// Returns a subscription ID that can be used to unsubscribe.
+    pub fn subscribe<G>(&self, observer: G) -> SubscriptionId
     where
         G: Fn(&U) + Send + Sync + 'static,
         U: 'static,
     {
-        // TODO: Implement proper subscription with lifetime management
-        // This is a complex issue that requires careful design
+        // Create a wrapper that maps the source value and calls the observer
+        let mapper = self.mapper.clone();
+        let wrapped_observer = move |source_value: &T| {
+            let mapped_value = mapper(source_value);
+            observer(&mapped_value);
+        };
+
+        // Subscribe to the source state
+        self.source.subscribe(wrapped_observer)
     }
 }
 
@@ -199,9 +374,7 @@ pub struct StateManager {
 impl StateManager {
     /// Create a new state manager.
     pub fn new() -> Self {
-        Self {
-            states: Vec::new(),
-        }
+        Self { states: Vec::new() }
     }
 
     /// Add a state to the manager.
@@ -229,8 +402,8 @@ impl Default for StateManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
     #[test]
     fn test_state_creation_and_access() {

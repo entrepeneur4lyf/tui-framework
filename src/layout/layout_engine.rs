@@ -5,7 +5,10 @@
 //! that automatically adapts to terminal size changes.
 
 use crate::layout::{Position, Rect, Size};
-use crate::render::vdom::{VirtualNode, VirtualElement, VirtualStyle, StyleValue, DisplayType, FlexDirection, JustifyContent, AlignItems};
+use crate::render::vdom::{
+    AlignItems, DisplayType, FlexDirection, JustifyContent, StyleValue, VirtualElement,
+    VirtualNode, VirtualStyle,
+};
 use std::collections::HashMap;
 
 /// Layout engine for computing responsive element positions and sizes.
@@ -106,7 +109,8 @@ impl Layout {
             }
             VirtualNode::Text(text_node) => {
                 // Text nodes take minimal space but can wrap
-                let text_size = Self::compute_text_size(&text_node.content, context.available_space);
+                let text_size =
+                    Self::compute_text_size(&text_node.content, context.available_space);
 
                 let layout = ComputedLayout {
                     position: Position::new(0, 0),
@@ -132,7 +136,10 @@ impl Layout {
         let style = &element.style;
 
         // Determine if element should be hidden
-        if matches!(style.visibility, Some(crate::render::vdom::Visibility::Hidden)) {
+        if matches!(
+            style.visibility,
+            Some(crate::render::vdom::Visibility::Hidden)
+        ) {
             let layout = ComputedLayout {
                 visible: false,
                 ..Default::default()
@@ -174,13 +181,17 @@ impl Layout {
     fn calculate_responsive_size(style: &VirtualStyle, available_space: Size) -> Size {
         let width = match &style.width {
             Some(StyleValue::Absolute(px)) => *px,
-            Some(StyleValue::Percentage(pct)) => ((available_space.width as f32) * (pct / 100.0)) as u32,
+            Some(StyleValue::Percentage(pct)) => {
+                ((available_space.width as f32) * (pct / 100.0)) as u32
+            }
             Some(StyleValue::Auto) | Some(StyleValue::Fill) | None => available_space.width, // Responsive by default
         };
 
         let height = match &style.height {
             Some(StyleValue::Absolute(px)) => *px,
-            Some(StyleValue::Percentage(pct)) => ((available_space.height as f32) * (pct / 100.0)) as u32,
+            Some(StyleValue::Percentage(pct)) => {
+                ((available_space.height as f32) * (pct / 100.0)) as u32
+            }
             Some(StyleValue::Fill) => available_space.height,
             Some(StyleValue::Auto) | None => {
                 // For height, be more conservative - don't fill unless explicitly set
@@ -205,7 +216,10 @@ impl Layout {
         }
 
         let flex_direction = element.style.flex_direction.unwrap_or(FlexDirection::Row);
-        let justify_content = element.style.justify_content.unwrap_or(JustifyContent::FlexStart);
+        let justify_content = element
+            .style
+            .justify_content
+            .unwrap_or(JustifyContent::FlexStart);
         let align_items = element.style.align_items.unwrap_or(AlignItems::Stretch);
 
         let mut total_main_size = 0u32;
@@ -272,42 +286,90 @@ impl Layout {
                 FlexDirection::Row => {
                     let cross_pos = match align_items {
                         AlignItems::FlexStart => 0,
-                        AlignItems::FlexEnd => container_size.height.saturating_sub(child_size.height),
-                        AlignItems::Center => (container_size.height.saturating_sub(child_size.height)) / 2,
+                        AlignItems::FlexEnd => {
+                            container_size.height.saturating_sub(child_size.height)
+                        }
+                        AlignItems::Center => {
+                            (container_size.height.saturating_sub(child_size.height)) / 2
+                        }
                         AlignItems::Stretch => 0, // Height will be stretched
-                        AlignItems::Baseline => 0, // TODO: Implement baseline alignment
+                        AlignItems::Baseline => {
+                            // For baseline alignment, we need to calculate the baseline position
+                            // In a TUI context, baseline is typically the bottom of text content
+                            // For now, we'll use a simple heuristic: align to the bottom of the tallest element
+                            let max_height =
+                                child_layouts.iter().map(|s| s.height).max().unwrap_or(0);
+                            max_height.saturating_sub(child_size.height)
+                        }
                     };
                     (current_position, cross_pos)
                 }
                 FlexDirection::RowReverse => {
                     let cross_pos = match align_items {
                         AlignItems::FlexStart => 0,
-                        AlignItems::FlexEnd => container_size.height.saturating_sub(child_size.height),
-                        AlignItems::Center => (container_size.height.saturating_sub(child_size.height)) / 2,
+                        AlignItems::FlexEnd => {
+                            container_size.height.saturating_sub(child_size.height)
+                        }
+                        AlignItems::Center => {
+                            (container_size.height.saturating_sub(child_size.height)) / 2
+                        }
                         AlignItems::Stretch => 0,
-                        AlignItems::Baseline => 0,
+                        AlignItems::Baseline => {
+                            // For RowReverse, use the same baseline logic
+                            let max_height =
+                                child_layouts.iter().map(|s| s.height).max().unwrap_or(0);
+                            max_height.saturating_sub(child_size.height)
+                        }
                     };
-                    (container_size.width.saturating_sub(current_position + child_size.width), cross_pos)
+                    (
+                        container_size
+                            .width
+                            .saturating_sub(current_position + child_size.width),
+                        cross_pos,
+                    )
                 }
                 FlexDirection::Column => {
                     let cross_pos = match align_items {
                         AlignItems::FlexStart => 0,
-                        AlignItems::FlexEnd => container_size.width.saturating_sub(child_size.width),
-                        AlignItems::Center => (container_size.width.saturating_sub(child_size.width)) / 2,
+                        AlignItems::FlexEnd => {
+                            container_size.width.saturating_sub(child_size.width)
+                        }
+                        AlignItems::Center => {
+                            (container_size.width.saturating_sub(child_size.width)) / 2
+                        }
                         AlignItems::Stretch => 0, // Width will be stretched
-                        AlignItems::Baseline => 0,
+                        AlignItems::Baseline => {
+                            // For Column direction, baseline alignment aligns to the widest element
+                            let max_width =
+                                child_layouts.iter().map(|s| s.width).max().unwrap_or(0);
+                            max_width.saturating_sub(child_size.width)
+                        }
                     };
                     (cross_pos, current_position)
                 }
                 FlexDirection::ColumnReverse => {
                     let cross_pos = match align_items {
                         AlignItems::FlexStart => 0,
-                        AlignItems::FlexEnd => container_size.width.saturating_sub(child_size.width),
-                        AlignItems::Center => (container_size.width.saturating_sub(child_size.width)) / 2,
+                        AlignItems::FlexEnd => {
+                            container_size.width.saturating_sub(child_size.width)
+                        }
+                        AlignItems::Center => {
+                            (container_size.width.saturating_sub(child_size.width)) / 2
+                        }
                         AlignItems::Stretch => 0,
-                        AlignItems::Baseline => 0,
+                        AlignItems::Baseline => {
+                            // For ColumnReverse, use the same baseline logic as Column
+                            let max_width =
+                                child_layouts.iter().map(|s| s.width).max().unwrap_or(0);
+                            max_width.saturating_sub(child_size.width)
+                        }
                     };
-                    (cross_pos, container_size.height.saturating_sub(current_position + child_size.height))
+                    (
+                        cross_pos,
+                        container_size
+                            .height
+                            .saturating_sub(current_position + child_size.height),
+                    )
                 }
             };
 
@@ -345,8 +407,12 @@ impl Layout {
 
         // Return the total size used by children
         match flex_direction {
-            FlexDirection::Row | FlexDirection::RowReverse => Size::new(total_main_size, max_cross_size),
-            FlexDirection::Column | FlexDirection::ColumnReverse => Size::new(max_cross_size, total_main_size),
+            FlexDirection::Row | FlexDirection::RowReverse => {
+                Size::new(total_main_size, max_cross_size)
+            }
+            FlexDirection::Column | FlexDirection::ColumnReverse => {
+                Size::new(max_cross_size, total_main_size)
+            }
         }
     }
 
@@ -365,7 +431,10 @@ impl Layout {
 
         for child in &mut element.children {
             let child_context = LayoutContext {
-                available_space: Size::new(container_size.width, container_size.height.saturating_sub(current_y)),
+                available_space: Size::new(
+                    container_size.width,
+                    container_size.height.saturating_sub(current_y),
+                ),
                 flex_direction: FlexDirection::Column,
                 is_flex_container: false,
             };
@@ -443,4 +512,284 @@ pub struct LayoutResult {
     pub total_size: Size,
     /// Computed layouts for all nodes
     pub layouts: HashMap<String, ComputedLayout>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::render::vdom::nodes::{div, text};
+
+    #[test]
+    fn test_layout_engine_creation() {
+        let _layout = Layout::new();
+        // Layout engine should be created successfully
+        // This is a simple test since Layout is a unit struct
+        assert!(true);
+    }
+
+    #[test]
+    fn test_layout_context_creation() {
+        let terminal_size = Size::new(80, 24);
+        let context = LayoutContext::new(terminal_size);
+
+        assert_eq!(context.available_space, terminal_size);
+        assert_eq!(context.flex_direction, FlexDirection::Column);
+        assert!(!context.is_flex_container);
+    }
+
+    #[test]
+    fn test_layout_context_child_context() {
+        let terminal_size = Size::new(80, 24);
+        let parent_context = LayoutContext::new(terminal_size);
+
+        let child_size = Size::new(40, 12);
+        let child_context = parent_context.child_context(child_size, FlexDirection::Row);
+
+        assert_eq!(child_context.available_space, child_size);
+        assert_eq!(child_context.flex_direction, FlexDirection::Row);
+        assert!(child_context.is_flex_container);
+    }
+
+    #[test]
+    fn test_computed_layout_default() {
+        let layout = ComputedLayout::default();
+
+        assert_eq!(layout.position, Position::new(0, 0));
+        assert_eq!(layout.size, Size::new(0, 0));
+        assert_eq!(layout.content_rect, Rect::from_coords(0, 0, 0, 0));
+        assert!(layout.visible);
+    }
+
+    #[test]
+    fn test_simple_text_layout() {
+        let mut node = text("Hello, World!");
+        let viewport = Size::new(80, 24);
+
+        let result = Layout::compute(&mut node, viewport);
+
+        assert_eq!(result.total_size.width, 13); // Length of "Hello, World!"
+        assert_eq!(result.total_size.height, 1);
+        assert_eq!(result.layouts.len(), 1);
+    }
+
+    #[test]
+    fn test_div_with_text_layout() {
+        let mut node = div().child(text("Test content"));
+        let viewport = Size::new(80, 24);
+
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for both div and text
+        assert_eq!(result.layouts.len(), 2);
+        // Div with text content has height based on content, width fills viewport
+        assert_eq!(result.total_size.width, 80);
+        assert!(result.total_size.height >= 1); // At least one line for text
+    }
+
+    #[test]
+    fn test_flex_column_layout() {
+        let mut node = div()
+            .style(VirtualStyle {
+                display: Some(DisplayType::Flex),
+                flex_direction: Some(FlexDirection::Column),
+                width: Some(StyleValue::Fill),
+                height: Some(StyleValue::Fill),
+                ..Default::default()
+            })
+            .child(text("First line"))
+            .child(text("Second line"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for div and two text nodes
+        assert_eq!(result.layouts.len(), 3);
+        // Total height should accommodate both text lines
+        assert!(result.total_size.height >= 2);
+    }
+
+    #[test]
+    fn test_flex_row_layout() {
+        let mut node = div()
+            .style(VirtualStyle {
+                display: Some(DisplayType::Flex),
+                flex_direction: Some(FlexDirection::Row),
+                width: Some(StyleValue::Fill),
+                height: Some(StyleValue::Fill),
+                ..Default::default()
+            })
+            .child(text("Left"))
+            .child(text("Right"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for div and two text nodes
+        assert_eq!(result.layouts.len(), 3);
+        // Total width should accommodate both text elements
+        assert!(result.total_size.width >= 9); // "Left" + "Right" = 9 chars
+    }
+
+    #[test]
+    fn test_absolute_sizing() {
+        let mut node = div()
+            .style(VirtualStyle {
+                width: Some(StyleValue::Absolute(20)),
+                height: Some(StyleValue::Absolute(10)),
+                ..Default::default()
+            })
+            .child(text("Content"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Div should have absolute size
+        assert_eq!(result.total_size.width, 20);
+        assert_eq!(result.total_size.height, 10);
+    }
+
+    #[test]
+    fn test_percentage_sizing() {
+        let mut node = div()
+            .style(VirtualStyle {
+                width: Some(StyleValue::Percentage(50.0)),
+                height: Some(StyleValue::Percentage(25.0)),
+                ..Default::default()
+            })
+            .child(text("Content"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Div should be 50% width and 25% height of viewport
+        assert_eq!(result.total_size.width, 40); // 50% of 80
+        assert_eq!(result.total_size.height, 6);  // 25% of 24
+    }
+
+    #[test]
+    fn test_nested_layout() {
+        let mut node = div()
+            .style(VirtualStyle {
+                display: Some(DisplayType::Flex),
+                flex_direction: Some(FlexDirection::Column),
+                width: Some(StyleValue::Fill),
+                height: Some(StyleValue::Fill),
+                ..Default::default()
+            })
+            .child(
+                div()
+                    .style(VirtualStyle {
+                        height: Some(StyleValue::Absolute(5)),
+                        width: Some(StyleValue::Fill),
+                        ..Default::default()
+                    })
+                    .child(text("Header"))
+            )
+            .child(
+                div()
+                    .style(VirtualStyle {
+                        height: Some(StyleValue::Fill),
+                        width: Some(StyleValue::Fill),
+                        ..Default::default()
+                    })
+                    .child(text("Content"))
+            );
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for all nodes: root div, header div, content div, header text, content text
+        // Note: The actual number may vary based on how the layout engine handles nested structures
+        assert!(result.layouts.len() >= 3); // At least the main components
+        // Total size should be reasonable (may exceed viewport due to content requirements)
+        assert_eq!(result.total_size.width, 80);
+        assert!(result.total_size.height >= 24); // At least viewport height
+    }
+
+    #[test]
+    fn test_justify_content_center() {
+        let mut node = div()
+            .style(VirtualStyle {
+                display: Some(DisplayType::Flex),
+                flex_direction: Some(FlexDirection::Row),
+                justify_content: Some(JustifyContent::Center),
+                width: Some(StyleValue::Fill),
+                height: Some(StyleValue::Fill),
+                ..Default::default()
+            })
+            .child(text("Centered"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for div and text
+        assert_eq!(result.layouts.len(), 2);
+        // Content should be centered (this is a basic test - actual centering logic would need more detailed verification)
+        assert_eq!(result.total_size, viewport);
+    }
+
+    #[test]
+    fn test_align_items_center() {
+        let mut node = div()
+            .style(VirtualStyle {
+                display: Some(DisplayType::Flex),
+                flex_direction: Some(FlexDirection::Column),
+                align_items: Some(AlignItems::Center),
+                width: Some(StyleValue::Fill),
+                height: Some(StyleValue::Fill),
+                ..Default::default()
+            })
+            .child(text("Centered"));
+
+        let viewport = Size::new(80, 24);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layouts for div and text
+        assert_eq!(result.layouts.len(), 2);
+        // Content should be centered vertically
+        assert_eq!(result.total_size, viewport);
+    }
+
+    #[test]
+    fn test_empty_layout() {
+        let mut node = div();
+        let viewport = Size::new(80, 24);
+
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should have layout for the div
+        assert_eq!(result.layouts.len(), 1);
+        // Empty div has minimal height but fills width
+        assert_eq!(result.total_size.width, 80);
+        assert!(result.total_size.height >= 1); // At least minimal height
+    }
+
+    #[test]
+    fn test_small_viewport() {
+        let mut node = div()
+            .child(text("This is a longer text that might not fit"));
+
+        let viewport = Size::new(10, 5);
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should handle small viewports gracefully
+        assert_eq!(result.layouts.len(), 2);
+        // Should not exceed viewport size
+        assert!(result.total_size.width <= viewport.width);
+        assert!(result.total_size.height <= viewport.height);
+    }
+
+    #[test]
+    fn test_zero_viewport() {
+        let mut node = div().child(text("Content"));
+        let viewport = Size::new(0, 0);
+
+        let result = Layout::compute(&mut node, viewport);
+
+        // Should handle zero viewport gracefully
+        assert_eq!(result.layouts.len(), 2);
+        // Should have minimal size even with zero viewport
+        assert_eq!(result.total_size.width, 0);
+        assert!(result.total_size.height >= 1); // Text still needs at least one line
+    }
 }

@@ -1,7 +1,7 @@
 //! Style builder for fluent style creation.
 
-use crate::style::{Color, Style};
 use crate::style::properties::StyleValue;
+use crate::style::{Color, Style};
 
 /// Builder for creating styles fluently.
 #[derive(Debug, Clone)]

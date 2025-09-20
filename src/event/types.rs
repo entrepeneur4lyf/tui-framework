@@ -1,6 +1,5 @@
 //! Event types and definitions.
 
-
 /// Mock key type when notcurses is not available
 #[cfg(not(feature = "notcurses"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,7 +94,7 @@ impl Event {
         match self {
             Event::Key(key_event) => key_event.bubbles,
             Event::Mouse(mouse_event) => mouse_event.bubbles,
-            Event::Focus(_) => false, // Focus events don't bubble
+            Event::Focus(_) => false,  // Focus events don't bubble
             Event::Resize(_) => false, // Resize events don't bubble
             Event::Custom(custom) => custom.bubbles,
         }
@@ -106,7 +105,7 @@ impl Event {
         match self {
             Event::Key(key_event) => key_event.bubbles = false,
             Event::Mouse(mouse_event) => mouse_event.bubbles = false,
-            Event::Focus(_) => {} // Focus events don't bubble anyway
+            Event::Focus(_) => {}  // Focus events don't bubble anyway
             Event::Resize(_) => {} // Resize events don't bubble anyway
             Event::Custom(custom) => custom.bubbles = false,
         }
@@ -163,13 +162,17 @@ impl KeyEvent {
     }
 }
 
-/// Key modifier flags.
 bitflags::bitflags! {
+    /// Key modifier flags.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct KeyModifiers: u8 {
+        /// Control key modifier.
         const CTRL = 1 << 0;
+        /// Alt key modifier.
         const ALT = 1 << 1;
+        /// Shift key modifier.
         const SHIFT = 1 << 2;
+        /// Meta/Windows/Cmd key modifier.
         const META = 1 << 3;
     }
 }
@@ -343,7 +346,7 @@ mod tests {
     fn test_event_bubbling() {
         let mut event = Event::Key(KeyEvent::new(NcKey::Enter));
         assert!(event.should_bubble());
-        
+
         event.stop_propagation();
         assert!(!event.should_bubble());
     }

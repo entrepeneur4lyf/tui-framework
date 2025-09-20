@@ -3,14 +3,14 @@
 use crate::style::{Color, StyleBuilder, StyleValue};
 
 /// Apply CSS-like properties to a StyleBuilder.
-/// 
+///
 /// This function provides a simple way to apply CSS-like styling
 /// using string-based property names and values.
-/// 
+///
 /// # Example
 /// ```rust,ignore
 /// use tui_framework::style::{StyleBuilder, css::apply_css_property};
-/// 
+///
 /// let builder = StyleBuilder::new();
 /// let builder = apply_css_property(builder, "background_color", "blue");
 /// let builder = apply_css_property(builder, "width", "100");
@@ -57,7 +57,7 @@ pub fn apply_css_property(builder: StyleBuilder, property: &str, value: &str) ->
 }
 
 /// Parse a color value from a string.
-/// 
+///
 /// Supports basic color names and hex values.
 fn parse_color(value: &str) -> Option<Color> {
     match value.to_lowercase().as_str() {
@@ -90,7 +90,7 @@ fn parse_color(value: &str) -> Option<Color> {
 }
 
 /// Parse a style value from a string.
-/// 
+///
 /// Supports absolute values, percentages, and keywords.
 fn parse_style_value(value: &str) -> Option<StyleValue> {
     match value.to_lowercase().as_str() {
@@ -115,31 +115,31 @@ fn parse_style_value(value: &str) -> Option<StyleValue> {
                     return Some(StyleValue::Absolute(px_value));
                 }
             }
-            
+
             None
         }
     }
 }
 
 /// Create a CSS utility class parser for common patterns.
-/// 
+///
 /// This function provides Tailwind-like utility class parsing
 /// for common styling patterns.
-/// 
+///
 /// # Example
 /// ```rust,ignore
 /// use tui_framework::style::{StyleBuilder, css::apply_utility_classes};
-/// 
+///
 /// let builder = StyleBuilder::new();
 /// let builder = apply_utility_classes(builder, "bg-blue text-white w-full");
 /// ```
 pub fn apply_utility_classes(builder: StyleBuilder, classes: &str) -> StyleBuilder {
     let mut current_builder = builder;
-    
+
     for class in classes.split_whitespace() {
         current_builder = apply_utility_class(current_builder, class);
     }
-    
+
     current_builder
 }
 
@@ -151,21 +151,21 @@ fn apply_utility_class(builder: StyleBuilder, class: &str) -> StyleBuilder {
             return builder.background_color(color);
         }
     }
-    
+
     // Text color utilities
     if let Some(color_name) = class.strip_prefix("text-") {
         if let Some(color) = parse_color(color_name) {
             return builder.color(color);
         }
     }
-    
+
     // Border color utilities
     if let Some(color_name) = class.strip_prefix("border-") {
         if let Some(color) = parse_color(color_name) {
             return builder.border_color(color);
         }
     }
-    
+
     // Width utilities
     match class {
         "w-full" => builder.width(StyleValue::Fill),
@@ -215,7 +215,7 @@ mod tests {
         let builder = StyleBuilder::new();
         let builder = apply_utility_classes(builder, "bg-blue text-white w-full");
         let style = builder.build();
-        
+
         assert_eq!(style.background_color, Some(Color::BLUE));
         assert_eq!(style.color, Some(Color::WHITE));
         assert_eq!(style.width, Some(StyleValue::Fill));

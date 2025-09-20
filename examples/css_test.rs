@@ -1,6 +1,6 @@
 //! Test the CSS macro functionality.
 
-use tui_framework::style::{StyleBuilder, Color, StyleValue};
+use tui_framework::style::{Color, StyleBuilder, StyleValue};
 use tui_framework_macros::css;
 
 fn main() {
@@ -42,15 +42,15 @@ fn main() {
 
     // Test 5: Individual utility classes
     println!("\n5. Testing individual utility classes:");
-    
+
     let bg_test = css! { "bg-red" };
     let bg_style = bg_test.build();
     println!("   bg-red: {:?}", bg_style.background_color);
-    
+
     let text_test = css! { "text-green" };
     let text_style = text_test.build();
     println!("   text-green: {:?}", text_style.color);
-    
+
     let width_test = css! { "w-auto" };
     let width_style = width_test.build();
     println!("   w-auto: {:?}", width_style.width);

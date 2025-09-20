@@ -222,8 +222,8 @@ pub mod handlers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{Event, KeyEvent};
     use crate::event::types::NcKey;
+    use crate::event::{Event, KeyEvent};
 
     struct TestHandler {
         called: std::sync::Arc<std::sync::atomic::AtomicBool>,

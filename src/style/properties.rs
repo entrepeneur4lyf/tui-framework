@@ -4,8 +4,7 @@ use crate::style::Color;
 use serde::{Deserialize, Serialize};
 
 /// A complete style definition for an element.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Style {
     /// Background color
     pub background_color: Option<Color>,
@@ -18,7 +17,6 @@ pub struct Style {
     /// Height
     pub height: Option<StyleValue>,
 }
-
 
 /// A style property value.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

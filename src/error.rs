@@ -12,7 +12,7 @@ pub enum Error {
     /// Notcurses error
     Notcurses {
         /// Error message
-        message: String
+        message: String,
     },
 
     /// IO error
@@ -23,63 +23,63 @@ pub enum Error {
     #[error("Component with id '{id}' not found")]
     ComponentNotFound {
         /// The ID of the component that was not found
-        id: String
+        id: String,
     },
 
     /// Invalid component state
     #[error("Invalid component state: {message}")]
     InvalidState {
         /// Description of the invalid state
-        message: String
+        message: String,
     },
 
     /// Rendering error
     #[error("Rendering error: {message}")]
     Render {
         /// Description of the rendering error
-        message: String
+        message: String,
     },
 
     /// Layout error
     #[error("Layout error: {message}")]
     Layout {
         /// Description of the layout error
-        message: String
+        message: String,
     },
 
     /// Style parsing error
     #[error("Style parsing error: {message}")]
     StyleParsing {
         /// Description of the style parsing error
-        message: String
+        message: String,
     },
 
     /// Event handling error
     #[error("Event handling error: {message}")]
     EventHandling {
         /// Description of the event handling error
-        message: String
+        message: String,
     },
 
     /// Context error
     #[error("Context error: {message}")]
     Context {
         /// Description of the context error
-        message: String
+        message: String,
     },
 
     /// Hook error (e.g., using hooks outside of component)
     #[error("Hook error: {message}")]
     Hook {
         /// Description of the hook error
-        message: String
+        message: String,
     },
 
     /// Generic framework error
     #[error("Framework error: {message}")]
     Framework {
         /// Description of the framework error
-        message: String
+        message: String,
     },
 
     /// Async runtime error
@@ -90,7 +90,7 @@ pub enum Error {
     #[error("Custom error: {message}")]
     Custom {
         /// Description of the custom error
-        message: String
+        message: String,
     },
 }
 

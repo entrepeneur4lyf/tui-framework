@@ -40,12 +40,12 @@ impl Component for Container {
 
     async fn render(&self, context: &RenderContext) -> Result<VirtualNode> {
         let mut container_node = VirtualNode::element("container");
-        
+
         for child in &self.children {
             let child_node = child.render(context).await?;
             container_node = container_node.child(child_node);
         }
-        
+
         Ok(container_node)
     }
 

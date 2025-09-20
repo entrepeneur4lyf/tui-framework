@@ -1,5 +1,6 @@
 //! Layout system and positioning.
 
+pub mod cache;
 pub mod flexbox;
 pub mod geometry;
 pub mod layout_engine;

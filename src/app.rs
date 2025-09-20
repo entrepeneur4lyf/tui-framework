@@ -3,9 +3,9 @@
 use crate::component::Component;
 use crate::error::Result;
 use crate::event::types::Event;
+use crate::layout::Rect;
 use crate::render::backend::{Backend, PlaceholderBackend};
 use crate::render::context::RenderContext;
-use crate::layout::{layout_engine::Layout, Rect};
 use crate::style::Theme;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -19,7 +19,6 @@ pub struct App {
     theme: Theme,
     root_component: Option<Box<dyn Component>>,
     backend: Box<dyn Backend>,
-    layout_engine: Layout,
     running: Arc<RwLock<bool>>,
 }
 
@@ -31,7 +30,6 @@ impl App {
             theme: Theme::default(),
             root_component: None,
             backend: Box::new(PlaceholderBackend::new()),
-            layout_engine: Layout::new(),
             running: Arc::new(RwLock::new(false)),
         }
     }
@@ -44,7 +42,6 @@ impl App {
             theme: Theme::default(),
             root_component: None,
             backend: Box::new(NotcursesBackend::new()),
-            layout_engine: Layout::new(),
             running: Arc::new(RwLock::new(false)),
         }
     }
@@ -77,7 +74,7 @@ impl App {
     /// Run the application event loop.
     pub async fn run(mut self) -> Result<()> {
         self.init().await?;
-        
+
         {
             let mut running = self.running.write().await;
             *running = true;
@@ -132,17 +129,13 @@ impl App {
             let terminal_size = self.backend.size()?;
 
             // Create render context
-            let context = RenderContext::new(&self.theme)
-                .with_viewport_size(terminal_size);
+            let context = RenderContext::new(&self.theme).with_viewport_size(terminal_size);
 
             // Render the component to get virtual DOM
             let vdom = root_component.render(&context).await?;
 
             // Compute layout
-            let layout_rect = Rect::new(
-                crate::layout::Position::new(0, 0),
-                terminal_size
-            );
+            let layout_rect = Rect::new(crate::layout::Position::new(0, 0), terminal_size);
 
             // Clear the screen
             self.backend.clear()?;

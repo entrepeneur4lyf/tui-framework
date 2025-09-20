@@ -1,6 +1,6 @@
 //! Color definitions and utilities.
 
-use palette::{Hsl, Hsv, Srgb, FromColor};
+use palette::{FromColor, Hsl, Hsv, Srgb};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -54,7 +54,7 @@ impl Color {
     /// Create a color from a hex string.
     pub fn hex(hex: &str) -> Result<Self, ColorParseError> {
         let hex = hex.trim_start_matches('#');
-        
+
         match hex.len() {
             3 => {
                 // RGB format: #RGB
@@ -96,7 +96,7 @@ impl Color {
         let r = self.r as f32 / 255.0;
         let g = self.g as f32 / 255.0;
         let b = self.b as f32 / 255.0;
-        
+
         0.299 * r + 0.587 * g + 0.114 * b
     }
 
@@ -120,7 +120,7 @@ impl Color {
         let mut lightened = Hsl::from_color(rgb);
         lightened.lightness = (lightened.lightness + amount).min(1.0);
         let rgb: Srgb = Srgb::from_color(lightened);
-        
+
         Self::rgba(
             (rgb.red * 255.0) as u8,
             (rgb.green * 255.0) as u8,
@@ -139,7 +139,7 @@ impl Color {
         let mut darkened = Hsl::from_color(rgb);
         darkened.lightness = (darkened.lightness - amount).max(0.0);
         let rgb: Srgb = Srgb::from_color(darkened);
-        
+
         Self::rgba(
             (rgb.red * 255.0) as u8,
             (rgb.green * 255.0) as u8,
@@ -152,7 +152,7 @@ impl Color {
     pub fn mix(&self, other: &Color, ratio: f32) -> Self {
         let ratio = ratio.clamp(0.0, 1.0);
         let inv_ratio = 1.0 - ratio;
-        
+
         Self::rgba(
             (self.r as f32 * inv_ratio + other.r as f32 * ratio) as u8,
             (self.g as f32 * inv_ratio + other.g as f32 * ratio) as u8,
@@ -169,24 +169,38 @@ impl Color {
 
 /// Common color constants.
 impl Color {
+    /// Pure black color.
     pub const BLACK: Color = Color::rgb(0, 0, 0);
+    /// Pure white color.
     pub const WHITE: Color = Color::rgb(255, 255, 255);
+    /// Pure red color.
     pub const RED: Color = Color::rgb(255, 0, 0);
+    /// Pure green color.
     pub const GREEN: Color = Color::rgb(0, 255, 0);
+    /// Pure blue color.
     pub const BLUE: Color = Color::rgb(0, 0, 255);
+    /// Pure yellow color.
     pub const YELLOW: Color = Color::rgb(255, 255, 0);
+    /// Pure cyan color.
     pub const CYAN: Color = Color::rgb(0, 255, 255);
+    /// Pure magenta color.
     pub const MAGENTA: Color = Color::rgb(255, 0, 255);
+    /// Medium gray color.
     pub const GRAY: Color = Color::rgb(128, 128, 128);
+    /// Dark gray color.
     pub const DARK_GRAY: Color = Color::rgb(64, 64, 64);
+    /// Light gray color.
     pub const LIGHT_GRAY: Color = Color::rgb(192, 192, 192);
+    /// Fully transparent color.
     pub const TRANSPARENT: Color = Color::rgba(0, 0, 0, 0);
 }
 
 /// Error type for color parsing.
 #[derive(Debug, Clone)]
 pub enum ColorParseError {
+    /// The color format is invalid.
     InvalidFormat,
+    /// Failed to parse hexadecimal value.
     InvalidHex(std::num::ParseIntError),
 }
 
